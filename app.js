@@ -43,15 +43,17 @@ async function getOrCreateDriveFolder(){let id=localStorage.getItem(DRIVE_FOLDER
 async function makePdfBlob(){
   prepareReport();
   const {jsPDF}=window.jspdf,pdf=new jsPDF('p','mm','a4');
-  const PW=210,PH=297,M=12,CW=PW-M*2,FOOT=13;
+  const PW=210,PH=297,M=12,CW=PW-M*2,FOOT=15;
   let y=M;
   const statusLabel={ok:'OK',warn:'ATENCIÓN',bad:'INTERVENCIÓN'};
-  const statusColor={ok:[28,120,70],warn:[185,120,0],bad:[185,45,45]};
+  const statusColor={ok:[34,110,70],warn:[180,115,0],bad:[190,35,45]};
 
   function footer(){
-    pdf.setFont('helvetica','normal'); pdf.setFontSize(7); pdf.setTextColor(90);
-    pdf.text('Cero Falla Automotriz SpA · +56 9 6915 2515 · cerofalla.automotriz@gmail.com',M,PH-7);
-    pdf.text('Tú no tienes que venir, yo voy.',PW-M,PH-7,{align:'right'});
+    pdf.setDrawColor(215); pdf.line(M,PH-13,PW-M,PH-13);
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(7); pdf.setTextColor(95);
+    pdf.text('Cero Falla Automotriz SpA  ·  +56 9 6915 2515  ·  cerofalla.automotriz@gmail.com',M,PH-8);
+    pdf.setFont('helvetica','bold'); pdf.setTextColor(190,35,45);
+    pdf.text('Tú no tienes que venir, yo voy.',PW-M,PH-8,{align:'right'});
   }
   function newPage(){ footer(); pdf.addPage(); y=M; }
   function need(h){ if(y+h>PH-FOOT) newPage(); }
@@ -63,16 +65,19 @@ async function makePdfBlob(){
     pdf.setFont('helvetica','normal'); pdf.setFontSize(size);
     return pdf.splitTextToSize(String(s||''),width);
   }
-  function rule(){ pdf.setDrawColor(215); pdf.line(M,y,PW-M,y); }
+  function rule(){ pdf.setDrawColor(220); pdf.line(M,y,PW-M,y); }
 
-  text('CERO',M,y+5,18,'bold');
-  text('FALLA',M+20,y+5,18,'bold',[205,25,35]);
-  text('ESPECIALISTA AUTOMOTRIZ',M,y+10,7,'bold',[80,80,80]);
-  text('INFORME DE REVISIÓN GENERAL Y MANTENIMIENTO',PW-M,y+5,11,'bold',[20,20,20],'right');
-  text('Folio: '+current.id,PW-M,y+10,7,'normal',[80,80,80],'right');
-  y+=16; rule(); y+=6;
+  // Cabecera Cero Falla
+  pdf.setFillColor(18,18,20); pdf.roundedRect(M,y,CW,18,2,2,'F');
+  text('CERO',M+5,y+8,19,'bold',[255,255,255]);
+  text('FALLA',M+27,y+8,19,'bold',[225,35,45]);
+  text('ESPECIALISTA AUTOMOTRIZ',M+5,y+13,6.8,'bold',[205,205,205]);
+  text('INFORME DE REVISIÓN',PW-M-5,y+7,11,'bold',[255,255,255],'right');
+  text('GENERAL Y MANTENIMIENTO',PW-M-5,y+12,8,'bold',[225,225,225],'right');
+  y+=23;
 
   const m=current.meta||{};
+  text('DATOS DEL VEHÍCULO',M,y,9,'bold',[190,35,45]); y+=5;
   const meta=[
     ['Cliente',m.cliente],['Fecha',m.fecha],
     ['Marca',m.marca],['Modelo',m.modelo],
@@ -81,69 +86,68 @@ async function makePdfBlob(){
   ];
   for(let i=0;i<meta.length;i+=2){
     const a=meta[i],b=meta[i+1];
-    text(a[0]+':',M,y,8,'bold'); text(a[1]||'-',M+25,y,8);
-    text(b[0]+':',M+96,y,8,'bold'); text(b[1]||'-',M+123,y,8);
+    text(a[0]+':',M,y,7.8,'bold',[70,70,70]); text(a[1]||'-',M+25,y,8);
+    text(b[0]+':',M+96,y,7.8,'bold',[70,70,70]); text(b[1]||'-',M+123,y,8);
     y+=5;
   }
-  y+=2; rule(); y+=6;
+  y+=1; rule(); y+=5;
 
   const vals=Object.values(current.items||{}),ct={ok:0,warn:0,bad:0};
-  vals.forEach(d=>{ if(Object.prototype.hasOwnProperty.call(ct,d.status)) ct[d.status]++; });
-  text('Resumen:',M,y,9,'bold');
-  text('OK '+ct.ok,M+22,y,9,'bold',statusColor.ok);
-  text('Atención '+ct.warn,M+47,y,9,'bold',statusColor.warn);
-  text('Intervención '+ct.bad,M+83,y,9,'bold',statusColor.bad);
-  y+=8;
+  vals.forEach(d=>{if(Object.prototype.hasOwnProperty.call(ct,d.status))ct[d.status]++});
+  text('RESULTADO',M,y,8,'bold',[70,70,70]);
+  text('OK  '+ct.ok,M+26,y,8.5,'bold',statusColor.ok);
+  text('ATENCIÓN  '+ct.warn,M+52,y,8.5,'bold',statusColor.warn);
+  text('INTERVENCIÓN  '+ct.bad,M+92,y,8.5,'bold',statusColor.bad);
+  text('Folio '+current.id,PW-M,y,6.8,'normal',[105,105,105],'right');
+  y+=7;
 
   async function imgDims(src,maxW,maxH){
     return await new Promise(resolve=>{
       const im=new Image();
       im.onload=()=>{const r=Math.min(maxW/im.width,maxH/im.height);resolve({w:im.width*r,h:im.height*r});};
-      im.onerror=()=>resolve({w:maxW,h:maxH});
-      im.src=src;
+      im.onerror=()=>resolve({w:maxW,h:maxH}); im.src=src;
     });
   }
 
   for(const [sec,items] of Object.entries(SECTIONS)){
     const included=items.map(item=>({item,key:slug(sec+'_'+item)})).filter(x=>{
       const d=current.items[x.key]||{};
-      return ['ok','warn','bad'].includes(d.status) || (d.photos||[]).length>0;
+      return ['ok','warn','bad'].includes(d.status)||(d.photos||[]).length>0;
     });
-    if(!included.length) continue;
+    if(!included.length)continue;
 
-    need(12);
-    pdf.setFillColor(242,242,242); pdf.rect(M,y-4,CW,7,'F');
-    text(sec,M+2,y+1,9,'bold'); y+=8;
+    need(11);
+    pdf.setFillColor(238,238,240); pdf.roundedRect(M,y-4,CW,7,1,1,'F');
+    text(sec,M+3,y+1,8.5,'bold',[35,35,38]); y+=8;
 
     for(const x of included){
-      const d=current.items[x.key]||{}, photos=d.photos||[];
+      const d=current.items[x.key]||{},photos=d.photos||[];
       const extras=Object.entries(d.extras||{}).filter(([,v])=>String(v||'').trim());
       const details=[];
-      if(String(d.obs||'').trim()) details.push('Obs.: '+String(d.obs).trim());
+      if(String(d.obs||'').trim())details.push('Obs.: '+String(d.obs).trim());
       extras.forEach(([k,v])=>details.push(k+': '+v));
-      const detailLines=details.length?wrap(details.join(' · '),CW-4,7.5):[];
+      const detailLines=details.length?wrap(details.join(' · '),CW-5,7.4):[];
 
       need(8+detailLines.length*3.5);
-      text(x.item,M,y,8.5,'bold');
-      if(statusLabel[d.status]) text(statusLabel[d.status],PW-M,y,8,'bold',statusColor[d.status],'right');
+      text(x.item,M+1,y,8.2,'bold',[35,35,35]);
+      if(statusLabel[d.status]){
+        const col=statusColor[d.status];
+        text(statusLabel[d.status],PW-M-1,y,7.8,'bold',col,'right');
+      }
       y+=4;
-
       if(detailLines.length){
-        pdf.setFont('helvetica','normal'); pdf.setFontSize(7.5); pdf.setTextColor(70);
-        pdf.text(detailLines,M+2,y);
-        y+=detailLines.length*3.5+2;
+        pdf.setFont('helvetica','normal');pdf.setFontSize(7.4);pdf.setTextColor(75);
+        pdf.text(detailLines,M+3,y); y+=detailLines.length*3.5+2;
       }
 
       if(photos.length){
         for(let p=0;p<photos.length;p+=2){
-          const pair=photos.slice(p,p+2), gap=4, boxW=(CW-gap)/2, maxH=58;
-          const dims=[];
-          for(const src of pair) dims.push(await imgDims(src,boxW,maxH));
-          const rowH=Math.max(...dims.map(d2=>d2.h));
-          need(rowH+5);
+          const pair=photos.slice(p,p+2),gap=4,boxW=(CW-gap)/2,maxH=54,dims=[];
+          for(const src of pair)dims.push(await imgDims(src,boxW,maxH));
+          const rowH=Math.max(...dims.map(q=>q.h)); need(rowH+6);
           for(let j=0;j<pair.length;j++){
-            const d2=dims[j],x0=M+j*(boxW+gap)+(boxW-d2.w)/2;
-            try{pdf.addImage(pair[j],'JPEG',x0,y,d2.w,d2.h,undefined,'FAST');}catch(e){}
+            const q=dims[j],x0=M+j*(boxW+gap)+(boxW-q.w)/2;
+            try{pdf.addImage(pair[j],'JPEG',x0,y,q.w,q.h,undefined,'FAST');}catch(e){}
           }
           y+=rowH+4;
         }
@@ -154,23 +158,22 @@ async function makePdfBlob(){
 
   const conclusion=String(current.conclusion||'').trim();
   if(conclusion){
-    const ls=wrap(conclusion,CW-4,8);
-    need(12+ls.length*4);
-    pdf.setFillColor(242,242,242); pdf.rect(M,y-4,CW,7,'F');
-    text('CONCLUSIÓN FINAL / RECOMENDACIONES',M+2,y+1,9,'bold'); y+=8;
-    pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(30);
-    pdf.text(ls,M+2,y); y+=ls.length*4+4;
+    const ls=wrap(conclusion,CW-8,8);
+    need(14+ls.length*4);
+    pdf.setFillColor(248,248,248);pdf.setDrawColor(210);pdf.roundedRect(M,y-3,CW,9+ls.length*4,1.5,1.5,'FD');
+    text('CONCLUSIÓN FINAL / RECOMENDACIONES',M+4,y+2,8.5,'bold',[190,35,45]);
+    y+=7;pdf.setFont('helvetica','normal');pdf.setFontSize(8);pdf.setTextColor(35);pdf.text(ls,M+4,y);
+    y+=ls.length*4+5;
   }
 
-  need(22); y+=6;
-  text('____________________________',M,y,8);
-  text('____________________________',PW-M-58,y,8);
+  need(22); y+=5;
+  text('____________________________',M+5,y,8,'normal',[0,0,0]);
+  text('____________________________',PW-M-63,y,8,'normal',[0,0,0]);
   y+=4;
-  text('Técnico Cero Falla',M+8,y,7,'bold');
-  text('Recepción cliente',PW-M-50,y,7,'bold');
+  text('Técnico Cero Falla',M+12,y,7,'bold',[70,70,70]);
+  text('Recepción cliente',PW-M-54,y,7,'bold',[70,70,70]);
 
-  footer();
-  clearReportFilter();
+  footer(); clearReportFilter();
   return pdf.output('blob');
 }
 async function uploadPdfToDrive(blob){const folderId=await getOrCreateDriveFolder(),boundary='cf_'+Date.now(),meta={name:driveFileName(),mimeType:'application/pdf',parents:[folderId]},head='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/pdf\r\n\r\n',tail='\r\n--'+boundary+'--',body=new Blob([head,blob,tail],{type:'multipart/related; boundary='+boundary});const r=await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});return await r.json()}

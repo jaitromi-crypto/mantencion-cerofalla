@@ -1,0 +1,8 @@
+{
+  "name": "Cero Falla - Revisión General y Mantenimiento",
+  "short_name": "Cero Falla",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#0b0b0d"
+}

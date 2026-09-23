@@ -22,5 +22,19 @@ function openRecord(id){const r=records().find(x=>x.id===id);if(!r)return alert(
 function deleteRecord(id){if(!confirm('¿Eliminar esta revisión?'))return;writeRecords(records().filter(x=>x.id!==id));if(localStorage.getItem(ACTIVE)===id)localStorage.removeItem(ACTIVE);renderHistory()}
 function renderHistory(){const a=records(),h=$('#historyList');if(!a.length){h.innerHTML='<div class="empty">Aún no hay revisiones guardadas.</div>';return}h.innerHTML=a.map(x=>`<div class="history-card"><div class="title">${esc(x.meta?.patente||'Sin patente')} · ${esc(x.meta?.marca||'')} ${esc(x.meta?.modelo||'')}</div><small>${esc(x.meta?.cliente||'Sin cliente')} · ${x.updated?new Date(x.updated).toLocaleString('es-CL'):''}</small><div class="history-actions"><button onclick="openRecord('${x.id}')">Abrir / continuar</button><button class="danger" onclick="deleteRecord('${x.id}')">Eliminar</button></div></div>`).join('')}
 function counts(){let c={ok:0,warn:0,bad:0,na:0};$$('.status .active').forEach(b=>c[b.dataset.v]++);$('#okCount').textContent=c.ok;$('#warnCount').textContent=c.warn;$('#badCount').textContent=c.bad;$('#naCount').textContent=c.na}
-$('#createBtn').onclick=create;$('#refreshBtn').onclick=renderHistory;$('#backBtn').onclick=showHome;$('#navHistory').onclick=showHome;$('#navSave').onclick=()=>saveNow(false);$('#navPdf').onclick=()=>{saveNow(true);$('#printFolio').textContent='Folio: '+current.id+' · Fecha informe: '+new Date().toLocaleDateString('es-CL');window.print()};$('#navTop').onclick=()=>scrollTo({top:0,behavior:'smooth'});$$('[data-meta]').forEach(i=>i.oninput=schedule);$('#conclusion').oninput=schedule;
+$('#createBtn').onclick=create;$('#refreshBtn').onclick=renderHistory;$('#backBtn').onclick=showHome;$('#navHistory').onclick=showHome;$('#navSave').onclick=()=>saveNow(false);$('#navPdf').onclick=()=>{
+ saveNow(true);
+ $('#printFolio').textContent='Folio: '+current.id+' · Fecha informe: '+new Date().toLocaleDateString('es-CL');
+ $$('.item').forEach(el=>{
+   const key=el.dataset.key, d=current.items[key]||{};
+   const included=['ok','warn','bad'].includes(d.status) || ((d.photos||[]).length>0);
+   el.classList.toggle('print-hide',!included);
+ });
+ $$('.section').forEach(sec=>{
+   const visible=[...sec.querySelectorAll('.item')].some(el=>!el.classList.contains('print-hide'));
+   sec.classList.toggle('print-hide',!visible);
+ });
+ window.print();
+ setTimeout(()=>{$$('.item,.section').forEach(el=>el.classList.remove('print-hide'))},500);
+};$('#navTop').onclick=()=>scrollTo({top:0,behavior:'smooth'});$$('[data-meta]').forEach(i=>i.oninput=schedule);$('#conclusion').oninput=schedule;
 window.openRecord=openRecord;window.deleteRecord=deleteRecord;renderHistory();

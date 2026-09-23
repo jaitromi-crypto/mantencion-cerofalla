@@ -33,3 +33,8 @@
  .print-disclaimer{display:block!important;font-size:6.5pt;color:#666;text-align:center;margin-top:9mm}
  footer{font-size:7pt!important;border-top:1px solid #aaa;padding:5px 0!important;margin-top:6mm!important}
 }
+
+@media print{
+  .item.print-hide{display:none!important}
+  .section.print-hide{display:none!important}
+}

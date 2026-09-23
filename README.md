@@ -23,3 +23,15 @@ Los datos se guardan localmente en el navegador del dispositivo.
 - Fotografías ordenadas en el informe.
 - Conclusión/recomendaciones destacadas.
 - Espacios de firma y texto de alcance del informe.
+
+
+## Versión 7
+Filtro del informe PDF:
+- Incluye ítems con estado OK.
+- Incluye ítems con estado Atención.
+- Incluye ítems con estado Intervención.
+- Incluye cualquier ítem que tenga al menos una fotografía, aunque no tenga estado.
+- Excluye ítems vacíos.
+- Excluye N/A si no tiene fotografía.
+- Oculta automáticamente secciones completas cuando no contienen ningún ítem incluido.
+- La aplicación y el historial siguen mostrando el checklist completo; el filtro afecta solamente al informe/PDF.

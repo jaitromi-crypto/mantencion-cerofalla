@@ -7,3 +7,8 @@
 .thumb-wrap{position:relative;flex:0 0 auto}.thumb-wrap img{width:78px;height:78px;object-fit:cover;border-radius:7px}
 .thumb-wrap button{position:absolute;right:-3px;top:-3px;width:23px;height:23px;border-radius:50%;border:0;background:#b3262d;color:white;font-weight:bold}
 @media print{.photo-actions,.thumb-wrap button{display:none!important}.thumb-wrap img{display:block!important}}
+
+body{padding-bottom:86px}.save-state{font-size:12px;color:#aaa;margin:4px 0 10px}.save-state strong{color:#52d68a}
+.bottom-bar{position:fixed;z-index:999;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#242429;border-top:1px solid #45454c;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -5px 20px #0008}
+.bottom-bar button{min-height:64px;border:0;background:#17171a;color:#eee;font-weight:bold;font-size:20px;padding:7px 3px;cursor:pointer}.bottom-bar button.primary{background:#d71920}.bottom-bar span{display:block;font-size:11px;margin-top:3px}
+@media print{body{padding-bottom:0}.bottom-bar,.save-state{display:none!important}}

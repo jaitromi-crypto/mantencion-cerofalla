@@ -4,8 +4,8 @@ const slug=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-
 function extra(sec,item){if(sec==='NEUMÁTICOS'&&/Derecho|Izquierdo|Repuesto/.test(item))return['Medida neumático','Profundidad dibujo (mm)'];if(item==='Batería')return['Voltaje','CCA / estado'];if(item==='Líquido de freno')return['% humedad / medición'];if(/Discos y Pastillas/.test(item))return['Espesor / desgaste','Detalle por eje'];return[]}
 function render(){form.innerHTML='';Object.entries(SECTIONS).forEach(([sec,items])=>{let box=document.createElement('section');box.className='section';box.innerHTML='<h2>'+sec+'</h2>';items.forEach(item=>{let k=slug(sec+'_'+item),d=current.items[k]||{},el=document.createElement('div');el.className='item';el.dataset.key=k;el.innerHTML=`<div class="item-title">${item}</div><div class="status"><button data-v="ok">✓ OK</button><button data-v="warn">! Atención</button><button data-v="bad">✕ Requiere intervención</button><button data-v="na">N/A No aplica</button></div><input class="obs" placeholder="Observación" value="${d.obs||''}"><div class="extras">${extra(sec,item).map(x=>`<label>${x}<input data-extra="${x}" value="${(d.extras||{})[x]||''}"></label>`).join('')}</div><div class="photo"><b>Fotos</b><div class="photo-actions"><label class="photo-btn">📷 Tomar foto<input class="photo-input camera-input" type="file" accept="image/*" capture="environment"></label><label class="photo-btn gallery">▣ Agregar desde galería<input class="photo-input gallery-input" type="file" accept="image/*" multiple></label></div><div class="thumbs"></div></div>`;if(d.status)el.querySelector(`[data-v="${d.status}"]`)?.classList.add('active');box.appendChild(el)});form.appendChild(box)});bind();counts()}
 function bind(){document.querySelectorAll('.item').forEach(el=>{
- el.querySelectorAll('.status button').forEach(b=>b.onclick=()=>{el.querySelectorAll('.status button').forEach(x=>x.classList.remove('active'));b.classList.add('active');capture();counts()});
- el.querySelectorAll('input').forEach(i=>{if(!i.classList.contains('photo-input'))i.oninput=capture});
+ el.querySelectorAll('.status button').forEach(b=>b.onclick=()=>{el.querySelectorAll('.status button').forEach(x=>x.classList.remove('active'));b.classList.add('active');capture();counts();scheduleSave()});
+ el.querySelectorAll('input').forEach(i=>{if(!i.classList.contains('photo-input'))i.oninput=()=>{capture();scheduleSave()}});
  const key=el.dataset.key; renderPhotos(el,key);
  el.querySelectorAll('.photo-input').forEach(inp=>inp.onchange=async e=>{
    for(const f of [...e.target.files]){const data=await compressPhoto(f);current.items[key]=current.items[key]||{};current.items[key].photos=current.items[key].photos||[];current.items[key].photos.push(data)}
@@ -14,12 +14,31 @@ function bind(){document.querySelectorAll('.item').forEach(el=>{
 })}
 function compressPhoto(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const max=1280,scale=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*scale);c.height=Math.round(im.height*scale);c.getContext('2d').drawImage(im,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.72))};im.onerror=reject;im.src=r.result};r.onerror=reject;r.readAsDataURL(file)})}
 function renderPhotos(el,key){const box=el.querySelector('.thumbs');if(!box)return;box.innerHTML='';const photos=(current.items[key]||{}).photos||[];photos.forEach((src,i)=>{const w=document.createElement('div');w.className='thumb-wrap';w.innerHTML=`<img src="${src}" alt="Foto ${i+1}"><button type="button" title="Eliminar foto">×</button>`;w.querySelector('button').onclick=()=>{photos.splice(i,1);renderPhotos(el,key);autoSaveSilent()};box.appendChild(w)})}
-function autoSaveSilent(){capture();if(!current.id)return;current.updated=new Date().toISOString();let a=db(),i=a.findIndex(x=>x.id===current.id);if(i>=0){a[i]=current;try{localStorage.setItem(STORE,JSON.stringify(a))}catch(e){alert('El almacenamiento del navegador está lleno. Guarda el PDF y elimina revisiones antiguas o fotos innecesarias.')}}}
+function autoSaveSilent(){persist(true)}
 function capture(){document.querySelectorAll('[data-meta]').forEach(i=>current.meta[i.dataset.meta]=i.value);current.conclusion=conclusion.value;document.querySelectorAll('.item').forEach(el=>{let x=current.items[el.dataset.key]||{};x.photos=x.photos||[];x.status=el.querySelector('.active')?.dataset.v||'';x.obs=el.querySelector('.obs').value;x.extras={};el.querySelectorAll('[data-extra]').forEach(i=>x.extras[i.dataset.extra]=i.value);current.items[el.dataset.key]=x})}
-function db(){try{return JSON.parse(localStorage.getItem(STORE)||'[]')}catch{return[]}}
-function save(){capture();if(!current.id)current.id='CF-'+Date.now();current.updated=new Date().toISOString();let a=db(),i=a.findIndex(x=>x.id===current.id);i>=0?a[i]=current:a.unshift(current);localStorage.setItem(STORE,JSON.stringify(a));alert('Revisión guardada en este dispositivo.')}
-function load(id){let x=db().find(x=>x.id===id);if(!x)return;current=JSON.parse(JSON.stringify(x));document.querySelectorAll('[data-meta]').forEach(i=>i.value=current.meta[i.dataset.meta]||'');conclusion.value=current.conclusion||'';render();history.classList.add('hidden');scrollTo(0,0)}
-function showHistory(){history.classList.toggle('hidden');if(history.classList.contains('hidden'))return;let a=db();history.innerHTML='<h2>Inspecciones guardadas</h2>'+a.map(x=>`<div class="history-card"><b>${x.meta?.patente||'Sin patente'}</b> · ${x.meta?.marca||''} ${x.meta?.modelo||''}<br><button onclick="load('${x.id}')">Abrir / editar</button></div>`).join('')}
-function fresh(){if(!confirm('¿Comenzar una revisión nueva?'))return;current={id:null,meta:{},items:{},conclusion:'',updated:null};document.querySelectorAll('[data-meta]').forEach(i=>i.value='');document.querySelector('[data-meta=fecha]').value=new Date().toISOString().slice(0,10);conclusion.value='';render()}
+function db(){try{const x=JSON.parse(localStorage.getItem(STORE)||'[]');return Array.isArray(x)?x:[]}catch{return[]}}
+function ensureId(){if(!current.id)current.id='CF-'+Date.now()}
+function setState(msg){const e=document.querySelector('#saveState');if(e)e.textContent=msg}
+function persist(silent=true){
+ capture();ensureId();current.updated=new Date().toISOString();
+ let a=db(),i=a.findIndex(x=>x.id===current.id);if(i>=0)a[i]=current;else a.unshift(current);
+ try{localStorage.setItem(STORE,JSON.stringify(a));localStorage.setItem(STORE+'-draft',JSON.stringify(current));setState('Guardado ✓ '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}));if(!silent)alert('Revisión guardada en este dispositivo.');return true}
+ catch(e){setState('No se pudo guardar');if(!silent)alert('No se pudo guardar. El almacenamiento del navegador puede estar lleno.');return false}
+}
+let saveTimer;
+function scheduleSave(){setState('Guardando…');clearTimeout(saveTimer);saveTimer=setTimeout(()=>persist(true),350)}
+function save(){persist(false)}
+function restoreDraft(){
+ try{const d=JSON.parse(localStorage.getItem(STORE+'-draft')||'null');if(d&&d.id){current=d;document.querySelectorAll('[data-meta]').forEach(i=>i.value=current.meta?.[i.dataset.meta]||'');conclusion.value=current.conclusion||'';render();setState('Revisión recuperada ✓');return true}}catch{}
+ return false
+}
+function load(id){let x=db().find(x=>x.id===id);if(!x)return;current=JSON.parse(JSON.stringify(x));localStorage.setItem(STORE+'-draft',JSON.stringify(current));document.querySelectorAll('[data-meta]').forEach(i=>i.value=current.meta?.[i.dataset.meta]||'');conclusion.value=current.conclusion||'';render();history.classList.add('hidden');setState('Revisión abierta ✓');scrollTo({top:0,behavior:'smooth'})}
+function showHistory(){history.classList.toggle('hidden');if(history.classList.contains('hidden'))return;let a=db();history.innerHTML='<h2>Inspecciones guardadas ('+a.length+')</h2>'+(a.length?a.map(x=>`<div class="history-card"><b>${x.meta?.patente||'Sin patente'}</b> · ${x.meta?.marca||''} ${x.meta?.modelo||''}<br><small>${x.updated?new Date(x.updated).toLocaleString('es-CL'):''}</small><br><button onclick="load('${x.id}')">Abrir / editar</button></div>`).join(''):'<p>No hay inspecciones guardadas en este navegador.</p>');history.scrollIntoView({behavior:'smooth',block:'start'})}
+function fresh(){if(current.id&&!confirm('¿Comenzar una revisión nueva? La revisión actual ya quedará guardada.'))return;if(current.id)persist(true);current={id:null,meta:{},items:{},conclusion:'',updated:null};ensureId();document.querySelectorAll('[data-meta]').forEach(i=>i.value='');document.querySelector('[data-meta=fecha]').value=new Date().toISOString().slice(0,10);conclusion.value='';render();persist(true);scrollTo({top:0,behavior:'smooth'})}
 function counts(){let c={ok:0,warn:0,bad:0,na:0};document.querySelectorAll('.status .active').forEach(b=>c[b.dataset.v]++);okCount.textContent=c.ok;warnCount.textContent=c.warn;badCount.textContent=c.bad;naCount.textContent=c.na}
-saveBtn.onclick=save;newBtn.onclick=fresh;historyBtn.onclick=showHistory;pdfBtn.onclick=()=>window.print();document.querySelector('[data-meta=fecha]').value=new Date().toISOString().slice(0,10);render();
+saveBtn.onclick=save;newBtn.onclick=fresh;historyBtn.onclick=showHistory;pdfBtn.onclick=()=>{persist(true);window.print()};
+document.querySelectorAll('[data-meta]').forEach(i=>i.addEventListener('input',scheduleSave));
+conclusion.addEventListener('input',scheduleSave);
+bottomSave.onclick=save;bottomHistory.onclick=showHistory;bottomPdf.onclick=()=>{persist(true);window.print()};bottomTop.onclick=()=>scrollTo({top:0,behavior:'smooth'});
+document.querySelector('[data-meta=fecha]').value=new Date().toISOString().slice(0,10);render();
+if(!restoreDraft()){ensureId();persist(true)}

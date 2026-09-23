@@ -38,3 +38,30 @@
   .item.print-hide{display:none!important}
   .section.print-hide{display:none!important}
 }
+
+/* V8: conservar encuadre completo de las fotografías */
+.thumb img{
+  object-fit:contain;
+  background:#111;
+}
+@media print{
+  .thumb{
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:43mm!important;
+    min-height:30mm!important;
+    vertical-align:top!important;
+    background:#fff!important;
+  }
+  .thumb img{
+    width:auto!important;
+    height:auto!important;
+    max-width:43mm!important;
+    max-height:42mm!important;
+    object-fit:contain!important;
+    object-position:center center!important;
+    background:#fff!important;
+    border:1px solid #aaa!important;
+  }
+}

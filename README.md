@@ -35,3 +35,11 @@ Filtro del informe PDF:
 - Excluye N/A si no tiene fotografía.
 - Oculta automáticamente secciones completas cuando no contienen ningún ítem incluido.
 - La aplicación y el historial siguen mostrando el checklist completo; el filtro afecta solamente al informe/PDF.
+
+
+## Versión 8
+- Corrige el recorte de fotografías en el PDF.
+- Se reemplaza el encuadre `cover` por `contain`.
+- La fotografía conserva su relación de aspecto original.
+- Se muestra la imagen completa, centrada, sin cortar bordes.
+- Se mantiene el filtro V7: sólo OK, Atención, Intervención y/o fotografía.

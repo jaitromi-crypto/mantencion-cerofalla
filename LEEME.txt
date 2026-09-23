@@ -1,0 +1,14 @@
+CERO FALLA V10 - ACTUALIZACIÓN
+
+Subir index.html y app.js a la raíz del repositorio mantencion-cerofalla reemplazando los archivos existentes.
+
+V10 agrega:
+- Botón Drive en barra inferior.
+- OAuth Google con permiso drive.file.
+- Generación de PDF con fotografías.
+- Creación de carpeta propia Cero Falla Revisiones autorizada por la app.
+- Nombre automático de PDF por fecha/patente/marca/modelo.
+- Conserva historial, autoguardado, filtro del informe y fotos completas de V9.
+
+IMPORTANTE:
+Google puede mostrar una pantalla de autorización la primera vez.

@@ -23,3 +23,10 @@ Nota: el almacenamiento sigue siendo local al navegador/dispositivo. Muchas foto
 - Recuperación del borrador actual al volver a abrir la app.
 - Barra inferior fija: Historial, Guardar, Informe y Arriba.
 - Indicador visible con hora del último guardado.
+
+
+## Versión 4
+Correcciones:
+- Historial reparado: se eliminó una colisión con `window.history` del navegador.
+- Fotografías visibles en el PDF/impresión.
+- Compresión de fotos optimizada para permitir más imágenes en el almacenamiento local.

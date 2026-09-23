@@ -43,3 +43,12 @@ Filtro del informe PDF:
 - La fotografía conserva su relación de aspecto original.
 - Se muestra la imagen completa, centrada, sin cortar bordes.
 - Se mantiene el filtro V7: sólo OK, Atención, Intervención y/o fotografía.
+
+
+## Versión 9
+- Elimina cajas de altura fija para fotografías.
+- En celular la foto usa ancho disponible y altura automática.
+- Conserva la relación de aspecto original.
+- El PDF usa dimensiones máximas, nunca un rectángulo de recorte.
+- Al tocar una foto en el celular se abre a pantalla completa.
+- No modifica Historial, autoguardado ni el filtro del informe V7.

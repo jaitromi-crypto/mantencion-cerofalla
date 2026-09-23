@@ -65,3 +65,93 @@
     border:1px solid #aaa!important;
   }
 }
+
+/* V9: fotografías completas, sin recorte, en móvil y PDF */
+.thumbs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:flex-start;
+}
+.thumb{
+  position:relative;
+  width:auto!important;
+  height:auto!important;
+  max-width:100%;
+  overflow:visible!important;
+  background:transparent!important;
+}
+.thumb img{
+  display:block!important;
+  width:auto!important;
+  height:auto!important;
+  max-width:min(100%, 320px)!important;
+  max-height:none!important;
+  aspect-ratio:auto!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  border-radius:7px;
+}
+@media(max-width:600px){
+  .thumb{
+    width:100%!important;
+  }
+  .thumb img{
+    width:100%!important;
+    height:auto!important;
+    max-width:100%!important;
+    max-height:none!important;
+    aspect-ratio:auto!important;
+    object-fit:contain!important;
+  }
+}
+.photo-modal{
+  position:fixed; inset:0; z-index:5000;
+  background:rgba(0,0,0,.94);
+  display:flex; align-items:center; justify-content:center;
+  padding:18px;
+}
+.photo-modal.hidden{display:none!important}
+.photo-modal img{
+  display:block;
+  width:auto; height:auto;
+  max-width:100%; max-height:90vh;
+  object-fit:contain;
+}
+.photo-modal button{
+  position:absolute; top:12px; right:12px;
+  background:#d71920; color:white;
+  font-size:20px; border-radius:50%;
+  width:42px; height:42px; padding:0;
+}
+@media print{
+  .photo-modal{display:none!important}
+  .thumbs{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:5mm!important;
+    align-items:flex-start!important;
+  }
+  .thumb{
+    display:block!important;
+    width:auto!important;
+    height:auto!important;
+    max-width:88mm!important;
+    min-height:0!important;
+    overflow:visible!important;
+    break-inside:avoid!important;
+    background:#fff!important;
+  }
+  .thumb img{
+    display:block!important;
+    width:auto!important;
+    height:auto!important;
+    max-width:88mm!important;
+    max-height:120mm!important;
+    aspect-ratio:auto!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    border:1px solid #aaa!important;
+    background:#fff!important;
+  }
+}

@@ -183,6 +183,43 @@ async function makePdfBlob(){
   footer(); clearReportFilter();
   return pdf.output('blob');
 }
-async function uploadPdfToDrive(blob){const folderId=await getOrCreateDriveFolder(),boundary='cf_'+Date.now(),meta={name:driveFileName(),mimeType:'application/pdf',parents:[folderId]},head='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/pdf\r\n\r\n',tail='\r\n--'+boundary+'--',body=new Blob([head,blob,tail],{type:'multipart/related; boundary='+boundary});const r=await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});return await r.json()}
-async function savePdfToDrive(){if(!current)return alert('Abre una revisión primero.');saveNow(true);const b=$('#navDrive'),old=b.innerHTML;b.disabled=true;b.innerHTML='⏳<span>Guardando</span>';try{await ensureDriveToken();const blob=await makePdfBlob(),f=await uploadPdfToDrive(blob);alert('PDF guardado en Google Drive ✓\n\n'+f.name)}catch(e){console.error(e);alert('No se pudo guardar en Drive.\n\n'+e.message)}finally{b.disabled=false;b.innerHTML=old}}
+function vehicleFolderName(){
+  const m=current?.meta||{};
+  const patente=String(m.patente||'').trim().toUpperCase();
+  const vin=String(m.vin||'').trim().toUpperCase();
+  const marca=String(m.marca||'').trim();
+  const modelo=String(m.modelo||'').trim();
+  const id=patente||vin||'SIN_IDENTIFICAR';
+  const desc=[marca,modelo].filter(Boolean).join(' ');
+  return safeFilePart(desc ? `${id} - ${desc}` : id);
+}
+async function findOrCreateVehicleFolder(parentId){
+  const key='CF_VEHICLE_FOLDER_'+vehicleFolderName();
+  let id=localStorage.getItem(key);
+  if(id){
+    try{
+      const r=await driveFetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(id)+'?fields=id,name,trashed,parents');
+      const d=await r.json();
+      if(!d.trashed && (d.parents||[]).includes(parentId)) return id;
+    }catch(e){}
+    localStorage.removeItem(key);
+  }
+  const meta={name:vehicleFolderName(),mimeType:'application/vnd.google-apps.folder',parents:[parentId]};
+  const r=await driveFetch('https://www.googleapis.com/drive/v3/files?fields=id,name',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(meta)});
+  const d=await r.json();
+  localStorage.setItem(key,d.id);
+  return d.id;
+}
+async function uploadPdfToDrive(blob){
+  const rootId=await getOrCreateDriveFolder();
+  const folderId=await findOrCreateVehicleFolder(rootId);
+  const boundary='cf_'+Date.now();
+  const meta={name:driveFileName(),mimeType:'application/pdf',parents:[folderId]};
+  const head='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/pdf\r\n\r\n';
+  const tail='\r\n--'+boundary+'--';
+  const body=new Blob([head,blob,tail],{type:'multipart/related; boundary='+boundary});
+  const r=await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});
+  return await r.json();
+}
+async function savePdfToDrive(){if(!current)return alert('Abre una revisión primero.');saveNow(true);const b=$('#navDrive'),old=b.innerHTML;b.disabled=true;b.innerHTML='⏳<span>Guardando</span>';try{await ensureDriveToken();const blob=await makePdfBlob(),f=await uploadPdfToDrive(blob);alert('PDF guardado en Google Drive ✓\n\nCarpeta: Cero Falla Revisiones / '+vehicleFolderName()+'\n\n'+f.name)}catch(e){console.error(e);alert('No se pudo guardar en Drive.\n\n'+e.message)}finally{b.disabled=false;b.innerHTML=old}}
 $('#navDrive').onclick=savePdfToDrive;

@@ -166,7 +166,14 @@ async function makePdfBlob(){
     y+=ls.length*4+5;
   }
 
-  need(22); y+=5;
+  // Firmas: evitar crear una página nueva solo para este bloque.
+  // Si no caben, las colocamos en el espacio inferior disponible de la última página.
+  const sigH=14, sigBottom=PH-FOOT-2;
+  if(y+sigH>sigBottom){
+    y=Math.max(y+2, sigBottom-sigH);
+  }else{
+    y+=5;
+  }
   text('____________________________',M+5,y,8,'normal',[0,0,0]);
   text('____________________________',PW-M-63,y,8,'normal',[0,0,0]);
   y+=4;

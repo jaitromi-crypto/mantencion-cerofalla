@@ -1,32 +1,14 @@
-# Cero Falla · Revisión General y Mantenimiento
+# Cero Falla · Mantenimiento V5
 
-App móvil para checklist de mantenimiento, observaciones, fotografías, historial local y PDF.
+Reescritura del flujo de almacenamiento e historial.
 
-## GitHub Pages
-Sube estos archivos a la raíz de `main`.
-Luego ve a Settings → Pages → Deploy from a branch → `main` → `/ (root)` → Save.
+- Pantalla inicial exclusiva para revisiones guardadas.
+- Nueva revisión crea inmediatamente un registro con ID único.
+- Historial independiente del formulario.
+- Abrir/continuar y eliminar revisiones.
+- Autoguardado.
+- Fotos por ítem, cámara y galería.
+- Fotos incluidas al imprimir/guardar como PDF.
+- Barra inferior fija en el formulario.
 
-
-## Versión 2
-- Agrega estado N/A (No aplica).
-- Botón dedicado para abrir la cámara del celular.
-- Botón separado para seleccionar fotos desde galería.
-- Las fotografías se comprimen y quedan asociadas a la inspección guardada en el navegador.
-- Permite eliminar fotografías antes de cerrar el informe.
-
-Nota: el almacenamiento sigue siendo local al navegador/dispositivo. Muchas fotografías pueden alcanzar el límite de almacenamiento del navegador; para uso intensivo conviene una futura versión con almacenamiento en la nube.
-
-
-## Versión 3
-- Guardado automático desde el inicio de cada revisión.
-- La revisión aparece en Historial aunque el usuario no pulse Guardar manualmente.
-- Recuperación del borrador actual al volver a abrir la app.
-- Barra inferior fija: Historial, Guardar, Informe y Arriba.
-- Indicador visible con hora del último guardado.
-
-
-## Versión 4
-Correcciones:
-- Historial reparado: se eliminó una colisión con `window.history` del navegador.
-- Fotografías visibles en el PDF/impresión.
-- Compresión de fotos optimizada para permitir más imágenes en el almacenamiento local.
+Los datos se guardan localmente en el navegador del dispositivo.

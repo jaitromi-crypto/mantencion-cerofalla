@@ -153,8 +153,8 @@
         if (!remote || canonical(local) === canonical(remote)) continue;
         const meta = remote.meta || {};
         const name = [meta.patente, meta.marca, meta.modelo].filter(Boolean).join(' · ') || remote.id;
-        const localPhotos = JSON.stringify(local).match(/data:image\\//g)?.length || 0;
-        const cloudPhotos = JSON.stringify(remote).match(/data:image\\//g)?.length || 0;
+        const localPhotos = JSON.stringify(local).match(new RegExp('data:image/', 'g'))?.length || 0;
+        const cloudPhotos = JSON.stringify(remote).match(new RegExp('data:image/', 'g'))?.length || 0;
         const yes = confirm('DIFERENCIA DETECTADA: ' + name +
           '\\n\\nFotos incrustadas en celular: ' + localPhotos +
           '\\nFotos incrustadas en nube: ' + cloudPhotos +

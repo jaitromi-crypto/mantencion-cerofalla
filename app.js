@@ -235,3 +235,29 @@ async function uploadPdfToDrive(blob){
 }
 async function savePdfToDrive(){if(!current)return alert('Abre una revisión primero.');saveNow(true);const b=$('#navDrive'),old=b.innerHTML,state=$('#saveState');b.disabled=true;try{b.innerHTML='⏳<span>Conectando</span>';state.textContent='☁️ Conectando con Google Drive…';await ensureDriveToken();b.innerHTML='📄<span>Generando</span>';state.textContent='📄 Generando informe PDF…';const blob=await makePdfBlob();b.innerHTML='☁️<span>Subiendo</span>';state.textContent='☁️ Subiendo a Google Drive…';const f=await uploadPdfToDrive(blob);b.innerHTML='✓<span>Guardado</span>';state.textContent='✓ Guardado en Google Drive';setTimeout(()=>{if(state.textContent.includes('Google Drive'))state.textContent='Guardado ✓'},5000);alert('PDF guardado en Google Drive ✓\n\nCarpeta: Cero Falla Revisiones / '+vehicleFolderName()+'\n\n'+f.name)}catch(e){console.error(e);state.textContent='Error al guardar en Drive';alert('No se pudo guardar en Drive.\n\n'+e.message)}finally{setTimeout(()=>{b.disabled=false;b.innerHTML=old},1800)}}
 $('#navDrive').onclick=savePdfToDrive;
+
+
+// Compartir informe PDF con el menú nativo del dispositivo.
+async function shareMaintenanceReport(){
+  if(!current)return alert('Abre una revisión primero.');
+  const btn=$('#navShare'), old=btn.innerHTML;
+  btn.disabled=true;
+  try{
+    saveNow(true);
+    btn.innerHTML='⏳<span>PDF</span>';
+    const blob=await makePdfBlob();
+    const file=new File([blob],driveFileName(),{type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:'Informe de mantenimiento Cero Falla'});
+    }else{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;a.download=file.name;
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      alert('PDF descargado. Puedes adjuntarlo a WhatsApp o correo electrónico.');
+    }
+  }catch(e){
+    if(e.name!=='AbortError'){console.error(e);alert('No se pudo preparar el envío: '+e.message);}
+  }finally{btn.disabled=false;btn.innerHTML=old;}
+}
+$('#navShare').onclick=shareMaintenanceReport;

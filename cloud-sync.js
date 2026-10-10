@@ -1,4 +1,6 @@
-const API_KEY = 'sb_publishable_8Ql_sMjbEAuYwbyoBQzZIA_LS7fJOq7';
+(() => {
+  'use strict';
+  const URL_BASE = 'https://hypzysgjpsgmzkztytsq.supabase.co';const API_KEY = 'sb_publishable_8Ql_sMjbEAuYwbyoBQzZIA_LS7fJOq7';
   const SESSION_KEY = 'CF_MANT_SUPABASE_SESSION_V1';
   let session = null;
   const el = id => document.getElementById(id);

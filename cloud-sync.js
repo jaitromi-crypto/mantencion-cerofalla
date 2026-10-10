@@ -1,0 +1,141 @@
+const API_KEY = 'sb_publishable_8Ql_sMjbEAuYwbyoBQzZIA_LS7fJOq7';
+  const SESSION_KEY = 'CF_MANT_SUPABASE_SESSION_V1';
+  let session = null;
+  const el = id => document.getElementById(id);
+
+  function storeSession(data) {
+    session = {...data, expires_at: Math.floor(Date.now() / 1000) + data.expires_in};
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  }
+  async function validSession() {
+    try {
+      const s = session || JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+      if (!s) return false;
+      if (s.expires_at > Date.now() / 1000 + 60) { session = s; return true; }
+      const r = await fetch(URL_BASE + '/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST', headers: {apikey: API_KEY, 'Content-Type': 'application/json'},
+        body: JSON.stringify({refresh_token: s.refresh_token})
+      });
+      if (!r.ok) throw Error('Sesión vencida');
+      storeSession(await r.json()); return true;
+    } catch (e) { session = null; localStorage.removeItem(SESSION_KEY); return false; }
+  }
+  async function login() {
+    if (await validSession()) return;
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:#111e;z-index:9999;display:grid;place-items:center;padding:16px';
+    overlay.innerHTML = '<form style="background:white;color:#111;padding:24px;border-radius:12px;display:grid;gap:12px;width:min(400px,100%)"><h2>CERO FALLA · Mantenciones</h2><p>Ingresa con la misma cuenta de OT y Cotizaciones.</p><input type="email" required autocomplete="username" placeholder="Correo" style="padding:12px"><input type="password" required autocomplete="current-password" placeholder="Contraseña" style="padding:12px"><button type="submit">Ingresar</button><small></small></form>';
+    document.body.appendChild(overlay);
+    await new Promise(resolve => {
+      overlay.querySelector('form').onsubmit = async event => {
+        event.preventDefault();
+        const form = event.currentTarget, msg = form.querySelector('small');
+        msg.textContent = 'Conectando…';
+        try {
+          const response = await fetch(URL_BASE + '/auth/v1/token?grant_type=password', {
+            method: 'POST', headers: {apikey: API_KEY, 'Content-Type': 'application/json'},
+            body: JSON.stringify({email: form.querySelector('[type=email]').value.trim(), password: form.querySelector('[type=password]').value})
+          });
+          if (!response.ok) throw Error('Correo o contraseña incorrectos');
+          storeSession(await response.json()); overlay.remove(); resolve();
+        } catch (error) { msg.textContent = error.message; }
+      };
+    });
+  }
+  async function request(path, options = {}) {
+    await login();
+    if (!await validSession()) throw Error('No hay sesión válida');
+    const response = await fetch(URL_BASE + '/rest/v1/' + path, {
+      ...options,
+      headers: {apikey: API_KEY, Authorization: 'Bearer ' + session.access_token,
+        'Content-Type': 'application/json', ...(options.headers || {})}
+    });
+    if (!response.ok) throw Error('Supabase ' + response.status + ': ' + (await response.text()).slice(0, 250));
+    const body = await response.text();
+    return body ? JSON.parse(body) : null;
+  }
+  async function remoteRecord(id) {
+    const found = await request('cf_mantenciones?id=eq.' + encodeURIComponent(id) + '&select=datos&limit=1');
+    return found[0]?.datos || null;
+  }
+  async function uploadRecord(record) {
+    await request('cf_mantenciones?on_conflict=id', {
+      method: 'POST', headers: {Prefer: 'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify({id: record.id, datos: record, actualizado_en: record.updated || new Date().toISOString()})
+    });
+  }
+  async function keepLocal(record) {
+    await idbPut(record);
+    const all = records(), index = all.findIndex(x => x.id === record.id);
+    if (index < 0) all.unshift(lightRecord(record));
+    else all[index] = lightRecord(record);
+    writeRecords(all);
+  }
+  async function syncNow() {
+    const button = el('cfSyncBtn'); button.disabled = true; button.textContent = 'Sincronizando…';
+    try {
+      await login();
+      let uploaded = 0, downloaded = 0;
+      const local = records();
+      for (const summary of local) {
+        const full = await idbGet(summary.id) || summary;
+        const remote = await remoteRecord(summary.id);
+        if (!remote || Date.parse(full.updated || 0) > Date.parse(remote.updated || 0)) {
+          await uploadRecord(full); uploaded++;
+        }
+      }
+      const cloud = await request('cf_mantenciones?select=datos&limit=1000');
+      for (const row of cloud) {
+        const record = row.datos;
+        const localSummary = records().find(x => x.id === record.id);
+        if (!localSummary || Date.parse(record.updated || 0) > Date.parse(localSummary.updated || 0)) {
+          await keepLocal(record); downloaded++;
+        }
+      }
+      renderHistory();
+      alert('Sincronización terminada. Subidas: ' + uploaded + ' · Descargadas: ' + downloaded + ' · Historial: ' + records().length);
+    } catch (error) {
+      console.error(error);
+      alert('No se pudo completar la sincronización: ' + error.message + '\nNo se borraron los registros locales.');
+    } finally { button.disabled = false; button.textContent = '☁ Sincronizar'; }
+  }
+  async function importBackup(file) {
+    if (!file) return;
+    try {
+      const backup = JSON.parse(await file.text());
+      if (backup.format !== 'CERO_FALLA_MANT_BACKUP_V1' || !Array.isArray(backup.records) ||
+          backup.records.some(x => !x.id || !x.meta || !x.items)) throw Error('Archivo de respaldo no válido');
+      await login();
+      if (!confirm('¿Importar ' + backup.records.length + ' mantenciones con sus fotos? No se reemplazarán registros existentes.')) return;
+      let imported = 0, existing = 0;
+      for (const record of backup.records) {
+        if (records().some(x => x.id === record.id) || await remoteRecord(record.id)) { existing++; continue; }
+        await uploadRecord(record);
+        await keepLocal(record);
+        imported++;
+      }
+      renderHistory();
+      alert('Importadas: ' + imported + ' · Ya existentes: ' + existing + ' · Total: ' + records().length + '\nConserva el respaldo hasta comprobar las fotos.');
+    } catch (error) {
+      console.error(error);
+      alert('Error al importar: ' + error.message + '\nEl archivo original permanece intacto.');
+    } finally { el('cfImportFile').value = ''; }
+  }
+  function setup() {
+    const home = el('homeView');
+    if (!home || !el('backupBtn')) return;
+    const bar = el('backupBtn').parentElement;
+    const importBtn = document.createElement('button'); importBtn.id = 'cfImportBtn';
+    importBtn.type = 'button'; importBtn.textContent = '📥 Importar respaldo';
+    const fileInput = document.createElement('input'); fileInput.id = 'cfImportFile';
+    fileInput.type = 'file'; fileInput.accept = '.json,application/json'; fileInput.hidden = true;
+    const syncBtn = document.createElement('button'); syncBtn.id = 'cfSyncBtn';
+    syncBtn.type = 'button'; syncBtn.textContent = '☁ Sincronizar';
+    bar.append(importBtn, fileInput, syncBtn);
+    importBtn.onclick = () => fileInput.click();
+    fileInput.onchange = event => importBackup(event.target.files[0]);
+    syncBtn.onclick = syncNow;
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
+})();

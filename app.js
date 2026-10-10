@@ -267,3 +267,31 @@ async function shareMaintenanceReport(){
   }finally{btn.disabled=false;btn.innerHTML=old;}
 }
 document.getElementById('navShare').addEventListener('click',shareMaintenanceReport);
+
+
+// Exportación no destructiva de registros completos, incluidas fotos en IndexedDB.
+async function exportMaintenanceBackup(){
+ const button=document.getElementById('backupBtn'),old=button.textContent;
+ button.disabled=true;button.textContent='Preparando respaldo…';
+ try{
+  const summaries=records();
+  if(!summaries.length){alert('No hay mantenciones guardadas en este dispositivo.');return;}
+  const full=[];
+  for(const item of summaries){
+   let record=null;
+   try{record=await idbGet(item.id);}catch(e){console.warn('IndexedDB',item.id,e);}
+   if(!record)record=item;
+   full.push(record);
+  }
+  const payload={format:'CERO_FALLA_MANT_BACKUP_V1',exportedAt:new Date().toISOString(),count:full.length,records:full};
+  const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
+  const filename='CeroFalla_Mantenciones_Respaldo_'+new Date().toISOString().slice(0,10)+'.json';
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  alert('Respaldo preparado: '+full.length+' mantenciones. Conserva el archivo JSON en un lugar seguro. No borres los datos del celular.');
+ }catch(e){console.error(e);alert('Error al respaldar: '+e.message);}
+ finally{button.disabled=false;button.textContent=old;}
+}
+document.getElementById('backupBtn').addEventListener('click',exportMaintenanceBackup);

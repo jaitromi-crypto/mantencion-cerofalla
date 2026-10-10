@@ -73,35 +73,66 @@
     else all[index] = lightRecord(record);
     writeRecords(all);
   }
+  // Comparación semántica: ignora fecha de guardado y campos vacíos equivalentes.
+  function canonical(record) {
+    const clean = value => {
+      if (Array.isArray(value)) return value.map(clean);
+      if (value && typeof value === 'object') {
+        const out = {};
+        for (const key of Object.keys(value).sort()) {
+          if (key === 'updated' || key === 'created') continue;
+          const v = clean(value[key]);
+          if (v !== '' && v !== null && v !== undefined &&
+              !(Array.isArray(v) && !v.length) &&
+              !(typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length)) out[key] = v;
+        }
+        return out;
+      }
+      return value == null ? '' : value;
+    };
+    return JSON.stringify(clean(record));
+  }
+  const BASELINE_KEY = 'CF_MANT_CLOUD_BASELINES_V1';
+  function baselines() { try { return JSON.parse(localStorage.getItem(BASELINE_KEY) || '{}'); } catch { return {}; } }
+  function rememberBaseline(id, record) {
+    const b = baselines(); b[id] = canonical(record);
+    localStorage.setItem(BASELINE_KEY, JSON.stringify(b));
+  }
   async function syncNow() {
     const button = el('cfSyncBtn'); button.disabled = true; button.textContent = 'Sincronizando…';
     try {
       await login();
-      let uploaded = 0, downloaded = 0, conflicts = 0;
-      const local = records();
+      let uploaded = 0, downloaded = 0, conflicts = 0, identical = 0;
       const cloud = await request('cf_mantenciones?select=datos&limit=1000');
       const remoteById = new Map(cloud.map(row => [row.datos.id, row.datos]));
-      for (const summary of local) {
+      const base = baselines();
+      for (const summary of records()) {
         const full = await idbGet(summary.id) || summary;
         const remote = remoteById.get(summary.id);
         if (!remote) {
-          await uploadRecord(full); uploaded++;
-        } else if (JSON.stringify(full) !== JSON.stringify(remote)) {
-          // No decidir por fecha: proteger ambos lados ante diferencias.
+          await uploadRecord(full); rememberBaseline(full.id, full); uploaded++;
+        } else if (canonical(full) === canonical(remote)) {
+          rememberBaseline(full.id, remote); identical++;
+        } else if (base[full.id] && base[full.id] === canonical(remote)) {
+          await uploadRecord(full); rememberBaseline(full.id, full); uploaded++;
+        } else if (base[full.id] && base[full.id] === canonical(full)) {
+          await keepLocal(remote); rememberBaseline(remote.id, remote); downloaded++;
+        } else {
           conflicts++;
+          console.warn('Mantención con versiones distintas protegidas:', full.id);
         }
       }
       for (const row of cloud) {
         const record = row.datos;
         if (!records().some(x => x.id === record.id)) {
-          await keepLocal(record); downloaded++;
+          await keepLocal(record); rememberBaseline(record.id, record); downloaded++;
         }
       }
       renderHistory();
-      alert('Sincronización segura terminada. Subidas: ' + uploaded +
-        ' · Descargadas: ' + downloaded + ' · Diferencias protegidas: ' + conflicts +
-        ' · Historial: ' + records().length +
-        (conflicts ? '\\nNo se reemplazó ningún registro diferente. Conserva tus respaldos.' : ''));
+      alert('Sincronización protegida. Subidas: ' + uploaded +
+        ' · Descargadas: ' + downloaded + ' · Coincidentes: ' + identical +
+        ' · Diferencias sin resolver: ' + conflicts + ' · Historial: ' + records().length +
+        (conflicts ? '\\nNo se modificaron los registros en conflicto. Conserva los respaldos.' : ''));
     } catch (error) {
       console.error(error);
       alert('No se pudo completar la sincronización: ' + error.message + '\\nNo se borraron los registros locales.');

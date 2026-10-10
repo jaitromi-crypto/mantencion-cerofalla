@@ -77,28 +77,34 @@
     const button = el('cfSyncBtn'); button.disabled = true; button.textContent = 'Sincronizando…';
     try {
       await login();
-      let uploaded = 0, downloaded = 0;
+      let uploaded = 0, downloaded = 0, conflicts = 0;
       const local = records();
+      const cloud = await request('cf_mantenciones?select=datos&limit=1000');
+      const remoteById = new Map(cloud.map(row => [row.datos.id, row.datos]));
       for (const summary of local) {
         const full = await idbGet(summary.id) || summary;
-        const remote = await remoteRecord(summary.id);
-        if (!remote || Date.parse(full.updated || 0) > Date.parse(remote.updated || 0)) {
+        const remote = remoteById.get(summary.id);
+        if (!remote) {
           await uploadRecord(full); uploaded++;
+        } else if (JSON.stringify(full) !== JSON.stringify(remote)) {
+          // No decidir por fecha: proteger ambos lados ante diferencias.
+          conflicts++;
         }
       }
-      const cloud = await request('cf_mantenciones?select=datos&limit=1000');
       for (const row of cloud) {
         const record = row.datos;
-        const localSummary = records().find(x => x.id === record.id);
-        if (!localSummary || Date.parse(record.updated || 0) > Date.parse(localSummary.updated || 0)) {
+        if (!records().some(x => x.id === record.id)) {
           await keepLocal(record); downloaded++;
         }
       }
       renderHistory();
-      alert('Sincronización terminada. Subidas: ' + uploaded + ' · Descargadas: ' + downloaded + ' · Historial: ' + records().length);
+      alert('Sincronización segura terminada. Subidas: ' + uploaded +
+        ' · Descargadas: ' + downloaded + ' · Diferencias protegidas: ' + conflicts +
+        ' · Historial: ' + records().length +
+        (conflicts ? '\\nNo se reemplazó ningún registro diferente. Conserva tus respaldos.' : ''));
     } catch (error) {
       console.error(error);
-      alert('No se pudo completar la sincronización: ' + error.message + '\nNo se borraron los registros locales.');
+      alert('No se pudo completar la sincronización: ' + error.message + '\\nNo se borraron los registros locales.');
     } finally { button.disabled = false; button.textContent = '☁ Sincronizar'; }
   }
   async function importBackup(file) {

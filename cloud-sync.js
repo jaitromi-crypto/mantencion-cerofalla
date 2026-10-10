@@ -160,11 +160,52 @@
       alert('Error al importar: ' + error.message + '\nEl archivo original permanece intacto.');
     } finally { el('cfImportFile').value = ''; }
   }
-  // Protección temporal: nunca enviar automáticamente una versión sin comprobar conflictos.
-  // El guardado local sigue funcionando; la sincronización se reactivará tras validar el control de versiones.
-  window.cfAutoSave = () => {
-    const state = document.getElementById('saveState');
-    if (state) state.textContent = 'Guardado local · nube pendiente';
+  // Guardado automático con comprobación de versión y sin reemplazar cambios ajenos.
+  const saveQueues = new Map();
+  window.cfAutoSave = record => {
+    const id = record.id;
+    const previous = saveQueues.get(id) || Promise.resolve();
+    const task = previous.catch(() => {}).then(async () => {
+      const state = el('saveState');
+      if (!await validSession()) {
+        if (state) state.textContent = 'Guardado local · inicia sesión y sincroniza';
+        return;
+      }
+      try {
+        const rows = await request('cf_mantenciones?id=eq.' + encodeURIComponent(id) +
+          '&select=datos,actualizado_en&limit=1');
+        const row = rows[0], base = baselines()[id];
+        if (row && canonical(row.datos) === canonical(record)) {
+          rememberBaseline(id, row.datos);
+          if (state) state.textContent = 'Guardado en nube ✓';
+          return;
+        }
+        if (row && (!base || canonical(row.datos) !== base)) {
+          if (state) state.textContent = 'Guardado local · conflicto, no sobrescrito';
+          console.warn('Versión distinta en nube, mantención protegida:', id);
+          return;
+        }
+        if (row) {
+          const result = await request('cf_mantenciones?id=eq.' + encodeURIComponent(id) +
+            '&actualizado_en=eq.' + encodeURIComponent(row.actualizado_en) + '&select=id', {
+            method: 'PATCH', headers: {Prefer: 'return=representation'},
+            body: JSON.stringify({datos: record, actualizado_en: record.updated})
+          });
+          if (!Array.isArray(result) || result.length !== 1) throw Error('Cambio simultáneo detectado');
+        } else {
+          await request('cf_mantenciones', {
+            method: 'POST', headers: {Prefer: 'return=minimal'},
+            body: JSON.stringify({id, datos: record, actualizado_en: record.updated})
+          });
+        }
+        rememberBaseline(id, record);
+        if (state) state.textContent = 'Guardado en nube ✓';
+      } catch (error) {
+        console.warn('Guardado local conservado; nube pendiente:', error);
+        if (state) state.textContent = 'Guardado local · nube pendiente';
+      }
+    });
+    saveQueues.set(id, task);
   };
   function setup() {
     const home = el('homeView');

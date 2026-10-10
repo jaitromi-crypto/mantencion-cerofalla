@@ -237,27 +237,33 @@ async function savePdfToDrive(){if(!current)return alert('Abre una revisión pri
 $('#navDrive').onclick=savePdfToDrive;
 
 
-// Compartir informe PDF con el menú nativo del dispositivo.
+// Compartir informe de mantenimiento: respuesta visible y descarga alternativa.
 async function shareMaintenanceReport(){
-  if(!current)return alert('Abre una revisión primero.');
-  const btn=$('#navShare'), old=btn.innerHTML;
-  btn.disabled=true;
+  const btn=document.getElementById('navShare');
+  if(!current){alert('Abre una revisión primero.');return;}
+  const old=btn.innerHTML, state=document.getElementById('saveState');
+  btn.disabled=true;btn.innerHTML='⏳<span>Generando</span>';
+  state.textContent='Preparando PDF para enviar…';
   try{
-    saveNow(true);
-    btn.innerHTML='⏳<span>PDF</span>';
+    await saveNow(true);
     const blob=await makePdfBlob();
-    const file=new File([blob],driveFileName(),{type:'application/pdf'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({files:[file],title:'Informe de mantenimiento Cero Falla'});
-    }else{
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');a.href=url;a.download=file.name;
-      document.body.appendChild(a);a.click();a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),60000);
-      alert('PDF descargado. Puedes adjuntarlo a WhatsApp o correo electrónico.');
+    const name=driveFileName();
+    const file=new File([blob],name,{type:'application/pdf'});
+    state.textContent='PDF listo para compartir';
+    if(typeof navigator.share==='function' && typeof navigator.canShare==='function' && navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:'Informe de mantenimiento Cero Falla'});return;}
+      catch(e){if(e.name==='AbortError'){state.textContent='Envío cancelado';return;}console.warn('Compartir no disponible, descargando PDF',e);}
     }
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=name;a.style.display='none';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    state.textContent='PDF descargado ✓';
+    alert('Informe PDF descargado. Adjúntalo en WhatsApp o correo para enviarlo.');
   }catch(e){
-    if(e.name!=='AbortError'){console.error(e);alert('No se pudo preparar el envío: '+e.message);}
+    console.error('Error al enviar mantenimiento',e);
+    state.textContent='Error al generar PDF';
+    alert('No se pudo generar el PDF para envío. '+(e?.message||String(e)));
   }finally{btn.disabled=false;btn.innerHTML=old;}
 }
-$('#navShare').onclick=shareMaintenanceReport;
+document.getElementById('navShare').addEventListener('click',shareMaintenanceReport);

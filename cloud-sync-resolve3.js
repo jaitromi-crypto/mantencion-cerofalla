@@ -132,10 +132,10 @@
       alert('Sincronización protegida. Subidas: ' + uploaded +
         ' · Descargadas: ' + downloaded + ' · Coincidentes: ' + identical +
         ' · Diferencias sin resolver: ' + conflicts + ' · Historial: ' + records().length +
-        (conflicts ? '\\nNo se modificaron los registros en conflicto. Conserva los respaldos.' : ''));
+        (conflicts ? '\nNo se modificaron los registros en conflicto. Conserva los respaldos.' : ''));
     } catch (error) {
       console.error(error);
-      alert('No se pudo completar la sincronización: ' + error.message + '\\nNo se borraron los registros locales.');
+      alert('No se pudo completar la sincronización: ' + error.message + '\nNo se borraron los registros locales.');
     } finally { button.disabled = false; button.textContent = '☁ Sincronizar'; }
   }
   // Resolución explícita de conflictos: nunca se ejecuta automáticamente.
@@ -153,12 +153,14 @@
         if (!remote || canonical(local) === canonical(remote)) continue;
         const meta = remote.meta || {};
         const name = [meta.patente, meta.marca, meta.modelo].filter(Boolean).join(' · ') || remote.id;
-        const localPhotos = 'incluidas en respaldo local';
-        const cloudPhotos = 'incluidas en registro de nube';
+        const countPhotos = rec => Object.values(rec.items || {}).reduce((total, item) =>
+          total + (Array.isArray(item?.photos) ? item.photos.length : 0), 0);
+        const localPhotos = countPhotos(local);
+        const cloudPhotos = countPhotos(remote);
         const yes = confirm('DIFERENCIA DETECTADA: ' + name +
-          '\\n\\nFotos del celular: ' + localPhotos +
-          '\\nFotos de la nube: ' + cloudPhotos +
-          '\\n\\nAceptar reemplazará SOLO esta mantención del celular por la versión de Supabase. ' +
+          '\n\\nFotografías del celular: ' + localPhotos +
+          '\nFotografías en Supabase: ' + cloudPhotos +
+          '\n\\nAceptar reemplazará SOLO esta mantención del celular por la versión de Supabase. ' +
           'No cambiará la nube ni las otras mantenciones. Conserva tu respaldo JSON.\\n\\n¿Recuperar versión de la nube?');
         if (!yes) { skipped++; continue; }
         // Comprobar que la versión remota no haya cambiado durante la confirmación.
@@ -173,10 +175,10 @@
       }
       renderHistory();
       alert('Recuperadas desde la nube: ' + resolved + ' · Pendientes: ' + skipped +
-        ' · Historial: ' + records().length + '\\nConserva el respaldo JSON.');
+        ' · Historial: ' + records().length + '\nConserva el respaldo JSON.');
     } catch (error) {
       console.error(error);
-      alert('No se pudo resolver la diferencia: ' + error.message + '\\nDetalles: ' + (error.stack || 'sin detalles').slice(0, 500));
+      alert('No se pudo resolver la diferencia: ' + error.message + '\nDetalles: ' + (error.stack || 'sin detalles').slice(0, 500));
     } finally {
       button.disabled = false; button.textContent = '🔎 Resolver diferencias';
     }

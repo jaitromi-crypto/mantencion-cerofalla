@@ -138,6 +138,49 @@
       alert('No se pudo completar la sincronización: ' + error.message + '\\nNo se borraron los registros locales.');
     } finally { button.disabled = false; button.textContent = '☁ Sincronizar'; }
   }
+  // Resolución explícita de conflictos: nunca se ejecuta automáticamente.
+  async function resolveConflicts() {
+    const button = el('cfResolveBtn');
+    button.disabled = true; button.textContent = 'Revisando diferencias…';
+    try {
+      await login();
+      const cloud = await request('cf_mantenciones?select=datos&limit=1000');
+      const remoteById = new Map(cloud.map(row => [row.datos.id, row.datos]));
+      let resolved = 0, skipped = 0;
+      for (const summary of records()) {
+        const local = await idbGet(summary.id) || summary;
+        const remote = remoteById.get(summary.id);
+        if (!remote || canonical(local) === canonical(remote)) continue;
+        const meta = remote.meta || {};
+        const name = [meta.patente, meta.marca, meta.modelo].filter(Boolean).join(' · ') || remote.id;
+        const localPhotos = JSON.stringify(local).match(/data:image\\//g)?.length || 0;
+        const cloudPhotos = JSON.stringify(remote).match(/data:image\\//g)?.length || 0;
+        const yes = confirm('DIFERENCIA DETECTADA: ' + name +
+          '\\n\\nFotos incrustadas en celular: ' + localPhotos +
+          '\\nFotos incrustadas en nube: ' + cloudPhotos +
+          '\\n\\nAceptar reemplazará SOLO esta mantención del celular por la versión de Supabase. ' +
+          'No cambiará la nube ni las otras mantenciones. Conserva tu respaldo JSON.\\n\\n¿Recuperar versión de la nube?');
+        if (!yes) { skipped++; continue; }
+        // Comprobar que la versión remota no haya cambiado durante la confirmación.
+        const fresh = await remoteRecord(remote.id);
+        if (!fresh || canonical(fresh) !== canonical(remote)) {
+          alert('La versión de la nube cambió durante la revisión. Vuelve a intentarlo.');
+          skipped++; continue;
+        }
+        await keepLocal(fresh);
+        rememberBaseline(fresh.id, fresh);
+        resolved++;
+      }
+      renderHistory();
+      alert('Recuperadas desde la nube: ' + resolved + ' · Pendientes: ' + skipped +
+        ' · Historial: ' + records().length + '\\nConserva el respaldo JSON.');
+    } catch (error) {
+      console.error(error);
+      alert('No se pudo resolver la diferencia: ' + error.message);
+    } finally {
+      button.disabled = false; button.textContent = '🔎 Resolver diferencias';
+    }
+  }
   async function importBackup(file) {
     if (!file) return;
     try {
@@ -217,10 +260,13 @@
     fileInput.type = 'file'; fileInput.accept = '.json,application/json'; fileInput.hidden = true;
     const syncBtn = document.createElement('button'); syncBtn.id = 'cfSyncBtn';
     syncBtn.type = 'button'; syncBtn.textContent = '☁ Sincronizar';
-    bar.append(importBtn, fileInput, syncBtn);
+    const resolveBtn = document.createElement('button'); resolveBtn.id = 'cfResolveBtn';
+    resolveBtn.type = 'button'; resolveBtn.textContent = '🔎 Resolver diferencias';
+    bar.append(importBtn, fileInput, syncBtn, resolveBtn);
     importBtn.onclick = () => fileInput.click();
     fileInput.onchange = event => importBackup(event.target.files[0]);
     syncBtn.onclick = syncNow;
+    resolveBtn.onclick = resolveConflicts;
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
   else setup();

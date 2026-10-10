@@ -123,17 +123,11 @@
       alert('Error al importar: ' + error.message + '\nEl archivo original permanece intacto.');
     } finally { el('cfImportFile').value = ''; }
   }
-  let pendingSave = Promise.resolve();
-  window.cfAutoSave = record => {
-    pendingSave = pendingSave.catch(() => {}).then(async () => {
-      if (!await validSession()) return;
-      await uploadRecord(record);
-    });
-    pendingSave.catch(error => {
-      console.warn('Mantención guardada localmente, sincronización pendiente:', error);
-      const state = document.getElementById('saveState');
-      if (state) state.textContent = 'Guardado local · nube pendiente';
-    });
+  // Protección temporal: nunca enviar automáticamente una versión sin comprobar conflictos.
+  // El guardado local sigue funcionando; la sincronización se reactivará tras validar el control de versiones.
+  window.cfAutoSave = () => {
+    const state = document.getElementById('saveState');
+    if (state) state.textContent = 'Guardado local · nube pendiente';
   };
   function setup() {
     const home = el('homeView');
